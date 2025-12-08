@@ -2,6 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import baseRoutes from './routes/baseRoutes.js';
 import journalRoutes from './routes/journalRoutes.js';
+import connectDB from './config/db.js';
 
 const app = express();
 dotenv.config();
@@ -17,6 +18,12 @@ app.use((req, res) => {
     res.status(404).json({error: "Route not found"});
 })
 
-app.listen(PORT, () => {
-    console.log(`Express server running at http://localhost:${PORT}`);
-})
+const startServer = async () => {
+    await connectDB();
+
+    app.listen(PORT, () => {
+        console.log(`Express server running at http://localhost:${PORT}`);
+    })
+}
+
+startServer();

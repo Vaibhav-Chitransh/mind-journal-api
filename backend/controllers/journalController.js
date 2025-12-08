@@ -1,83 +1,86 @@
-let entries = [
-  {
-    id: 1,
-    title: "First entry",
-    content: "Hello journal",
-    createdAt: new Date().toISOString(),
-  },
-]
+import mongoose from 'mongoose';
+import Entry from '../models/entryModel.js';
 
-let nextId = 2;
-
-export const getAllEntries = (req, res) => {
-    res.status(200).json({entries});
-}
-
-export const getEntryById = (req, res) => {
-    const id = Number(req.params.id);
-
-    if(isNaN(id)) return res.status(400).json({error: "Invalid ID"});
-
-    const entry = entries.find((e) => e.id === id);
-
-    if(!entry) return res.status(404).json({error: "Entry not found"});
-
-    res.status(200).json({entry});
-}
-
-export const createEntry = (req, res) => {
-    const {title, content} = req.body;
-
-    if(!title || !content) return res.status(400).json({error: "title and content are required"});
-
-    const newEntry = {
-        id: nextId++,
-        title, 
-        content,
-        createdAt: new Date().toISOString()
+export const getAllEntries = async (req, res) => {
+    try {
+        const entries = await Entry.find().sort({createdAt: -1});
+        res.status(200).json({entries});
+    } catch (error) {
+        console.error(`Error fetching entries: ${error}`);
+        res.status(500).json({error: 'Server error while fetching entries'});
     }
-
-    entries.push(newEntry);
-    res.status(201).json({entry: newEntry});
 }
 
-export const updateEntry = (req, res) => {
-    const id = Number(req.params.id);
+export const getEntryById = async (req, res) => {
+    try {
+        const {id} = req.params;
 
-    if(isNaN(id)) return res.status(400).json({error: "Invalid ID"});
+        if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({error: "Invalid ID"});
 
-    const entryIndex = entries.findIndex((e) => e.id === id);
+        const entry = await Entry.findById(id);
 
-    if(entryIndex === -1) return res.status(404).json({error: "Entry not found"});
+        if(!entry) return res.status(400).json({error: "Entry not found"});
 
-    const {title, content} = req.body;
-
-    if(!title && !content) return res.status(400).json({error: "Nothing to update"});
-
-    const existing = entries[entryIndex];
-
-    const updated = {
-        ...existing,
-        title: title ?? existing.title,
-        content: content ?? existing.content,
-        updatedAt: new Date().toISOString()
+        res.status(200).json({entry});
+    } catch (error) {
+        console.error(`Error fetching entry: ${err}`);
+        res.status(500).json({error: 'Server error while fetching entry'});
     }
-
-    entries[entryIndex] = updated;
-    res.status(200).json({entry: updated});
 }
 
-export const deleteEntry = (req, res) => {
-    const id = Number(req.params.id);
+export const createEntry = async (req, res) => {
+    try {
+        const {title, content} = req.body;
 
-    if(isNaN(id)) return res.status(400).json({error: "Invalid ID"});
+        if(!title || !content) return res.status(400).json({error: "title and content are required"});
 
-    const entryIndex = entries.findIndex((e) => e.id === id);
+        const entry = await Entry.create({title, content});
+        res.status(201).json({entry});
+    } catch (error) {
+        console.error(`Error creating entry: ${error}`);
+        res.status(500).json({error: 'Server error while creating entry'});
+    }
+}
 
-    if (entryIndex === -1) return res.status(404).json({ error: "Entry not found" });
+export const updateEntry = async (req, res) => {
+    try {
+        const {id} = req.params;
 
-    const deleted = entries[entryIndex];
-    entries.splice(entryIndex, 1);
+        if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({error: "Invalid ID"});
 
-    res.status(200).json({ deleted });
+        const {title, content} = req.body;
+
+        if(!title && !content) return res.status(400).json({error: 'Nothing to update'});
+
+        const entry = await Entry.findById(id);
+
+        if(!entry) return res.status(400).json({error: "Entry not found"});
+
+        if(title) entry.title = title;
+        if(content) entry.content = content;
+
+        await entry.save();
+
+        return res.status(200).json({entry});
+    } catch (error) {
+        console.error(`Error updating entry: ${error}`);
+        res.status(500).json({error: 'Server error while updating entry'});
+    }
+}
+
+export const deleteEntry = async (req, res) => {
+   try {
+        const {id} = req.params; 
+
+        if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({error: "Invalid ID"});
+
+        const deleted = await Entry.findByIdAndDelete(id);
+
+        if(!deleted) return res.status(400).json({error: "Entry not found"});
+        
+        res.status(200).json({deleted});
+   } catch (error) {
+        console.error(`Error deleting entry: ${error}`);
+        res.status(500).json({entry});
+   }
 }
