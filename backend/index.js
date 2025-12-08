@@ -87,6 +87,21 @@ const server = http.createServer(async (req, res) => {
         }
     } 
 
+    // GET /journal/:id
+    if(method === 'GET' && path.startsWith('/journal/')) {
+        const parts = path.split("/");
+
+        const id = Number(parts[2]);
+
+        if(isNaN(id)) return sendJSON(res, 400, {error: "Invalid ID"});
+
+        const entry = entries.find(e => e.id === id);
+
+        if(!entry) return sendJSON(res, 404, {error: 'Entry not found'});
+
+        return sendJSON(res, 200, {entry});
+    }
+
     return sendJSON(res, 404, {error: "Route Not Found"});
 })
 
