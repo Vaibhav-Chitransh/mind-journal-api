@@ -102,6 +102,58 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, 200, {entry});
     }
 
+    // PUT /journal/:id
+    if(method === 'PUT' && path.startsWith('/journal/')) {
+        const parts = path.split("/");
+        const id = Number(parts[2]);
+
+        if(isNaN(id)) return sendJSON(res, 400, {error: "Invalid ID"});
+
+        const entryIndex = entries.findIndex(e => e.id === id);
+
+        if(entryIndex === -1) return sendJSON(res, 404, {error: "Entry not found"});
+
+        try {
+            const body = await getRequestBody(req);
+            const {title, content} = body;
+
+            if(!title && !content) return sendJSON(res, 400, {error: "Nothing to update"});
+
+            const existing = entries[entryIndex];
+
+            const updated = {
+                ...existing,
+                title: title ?? existing.title,
+                content: content ?? existing.content,
+                updatedAt: new Date().toISOString()
+            }
+
+            entries[entryIndex] = updated;
+
+            return sendJSON(res, 200, {entry: updated});
+        } catch (error) {
+            console.error("Error parsing body: ", error);
+            return sendJSON(res, 400, {error: "Invalid JSON body"});
+        }
+    }
+
+    // DELETE /journal/:id
+    if(method === 'DELETE' && path.startsWith('/journal/')) {
+        const parts = path.split('/');
+        const id = Number(parts[2]);
+
+        if(isNaN(id)) return sendJSON(res, 400, {error: "Invalid ID"});
+
+        const entryIndex = entries.findIndex(e => e.id === id);
+
+        if(entryIndex === -1) return sendJSON(res, 404, {error: "Entry not found"});
+
+        const deleted = entries[entryIndex];
+        entries.splice(entryIndex, 1);
+
+        return sendJSON(res, 200, {deleted});
+    }
+
     return sendJSON(res, 404, {error: "Route Not Found"});
 })
 
