@@ -1,162 +1,120 @@
-import http from 'http';
-import url from 'url';
-import dotenv from 'dotenv';
-
+import express from 'express'
+import dotenv from 'dotenv'
+const app = express();
 dotenv.config();
+
 const PORT = process.env.PORT;
 
-// Fake database
-let entries = [
-    {
-        id: 1,
-        title: "First entry",
-        content: "Hello Journal",
-        createdAt: new Date().toISOString()
-    }
-];
+app.use(express.json());  // Middleware to parse JSON body
 
-const sendJSON = (res, statusCode, data) => {
-    res.statusCode = statusCode;
-    res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify(data));
-}
+let entries = [
+  {
+    id: 1,
+    title: "First entry",
+    content: "Hello journal",
+    createdAt: new Date().toISOString(),
+  },
+]
 
 let nextId = 2;
 
-const getRequestBody = (req) => {
-    return new Promise((resolve, reject) => {
-        let body = "";
 
-        req.on("data", chunk => body += chunk.toString());
-
-        req.on("end", () => {
-            if(!body) return resolve({});
-
-            try {
-                const parsed = JSON.parse(body);
-                resolve(parsed);
-            } catch (error) {
-                reject(error);
-            }
-        })
-
-        req.on("error", err => reject(err));
-    })
-}
-
-const server = http.createServer(async (req, res) => {
-    const parsedUrl = url.parse(req.url, true);   // true -> also parse query params
-    const path = parsedUrl.pathname;
-    const method = req.method;
-
-    console.log(method, path);
-    
-
-    // ROUTES
-
-
-    // GET /
-    if(path === '/' && method === 'GET') return sendJSON(res, 200, {message: "Mind Journal API root"});
-
-    // GET /health
-    if(path === '/health' && method === 'GET') return sendJSON(res, 200, {staus: 'ok', uptime: process.uptime()});
-
-    // GET /journal
-    if(path === '/journal' && method === 'GET') return sendJSON(res, 200, {entries});
-
-    // POST /journal
-    if(path === '/journal' && method === 'POST') {
-        try {
-            const body = await getRequestBody(req);
-            const {title, content} = body;
-
-            if(!title || !content) return sendJSON(res, 400, {error: "title and content are required"});
-
-            const newEntry = {
-                id: nextId++,
-                title,
-                content,
-                createdAt: new Date().toISOString()
-            }
-
-            entries.push(newEntry);
-            return sendJSON(res, 201, {entry: newEntry});
-        } catch (error) {
-            console.log("Error parsing body: ", error);
-            return sendJSON(res, 400, {error: "Invalid JSON body"});
-        }
-    } 
-
-    // GET /journal/:id
-    if(method === 'GET' && path.startsWith('/journal/')) {
-        const parts = path.split("/");
-
-        const id = Number(parts[2]);
-
-        if(isNaN(id)) return sendJSON(res, 400, {error: "Invalid ID"});
-
-        const entry = entries.find(e => e.id === id);
-
-        if(!entry) return sendJSON(res, 404, {error: 'Entry not found'});
-
-        return sendJSON(res, 200, {entry});
-    }
-
-    // PUT /journal/:id
-    if(method === 'PUT' && path.startsWith('/journal/')) {
-        const parts = path.split("/");
-        const id = Number(parts[2]);
-
-        if(isNaN(id)) return sendJSON(res, 400, {error: "Invalid ID"});
-
-        const entryIndex = entries.findIndex(e => e.id === id);
-
-        if(entryIndex === -1) return sendJSON(res, 404, {error: "Entry not found"});
-
-        try {
-            const body = await getRequestBody(req);
-            const {title, content} = body;
-
-            if(!title && !content) return sendJSON(res, 400, {error: "Nothing to update"});
-
-            const existing = entries[entryIndex];
-
-            const updated = {
-                ...existing,
-                title: title ?? existing.title,
-                content: content ?? existing.content,
-                updatedAt: new Date().toISOString()
-            }
-
-            entries[entryIndex] = updated;
-
-            return sendJSON(res, 200, {entry: updated});
-        } catch (error) {
-            console.error("Error parsing body: ", error);
-            return sendJSON(res, 400, {error: "Invalid JSON body"});
-        }
-    }
-
-    // DELETE /journal/:id
-    if(method === 'DELETE' && path.startsWith('/journal/')) {
-        const parts = path.split('/');
-        const id = Number(parts[2]);
-
-        if(isNaN(id)) return sendJSON(res, 400, {error: "Invalid ID"});
-
-        const entryIndex = entries.findIndex(e => e.id === id);
-
-        if(entryIndex === -1) return sendJSON(res, 404, {error: "Entry not found"});
-
-        const deleted = entries[entryIndex];
-        entries.splice(entryIndex, 1);
-
-        return sendJSON(res, 200, {deleted});
-    }
-
-    return sendJSON(res, 404, {error: "Route Not Found"});
+// ROOT: GET /
+app.get("/", (req, res) => {
+    res.status(200).json({message: "Mind Journal API root"});
 })
 
-server.listen(PORT, () => {
-    console.log(`Server is running at http://localhost:${PORT}`);
+// HEALTH: GET /health
+app.get("/health", (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+        entriesCount: entries.length,
+    })
+})
+
+// GET /journal
+app.get('/journal', (req, res) => {
+    res.status(200).json({entries});
+})
+
+// GET /journal/:id
+app.get('/journal/:id', (req, res) => {
+    const id = Number(req.params.id);
+
+    if(isNaN(id)) return res.status(400).json({error: "Invalid ID"});
+
+    const entry = entries.find((e) => e.id === id);
+
+    if(!entry) return res.status(404).json({error: "Entry not found"});
+
+    res.status(200).json({entry});
+})
+
+// POST /journal
+app.post('/journal', (req, res) => {
+    const {title, content} = req.body;
+
+    if(!title || !content) return res.status(400).json({error: "title and content are required"});
+
+    const newEntry = {
+        id: nextId++,
+        title, 
+        content,
+        createdAt: new Date().toISOString()
+    }
+
+    entries.push(newEntry);
+    res.status(201).json({entry: newEntry});
+})
+
+// PUT /journal/:id
+app.put('/journal/:id', (req, res) => {
+    const id = Number(req.params.id);
+
+    if(isNaN(id)) return res.status(400).json({error: "Invalid ID"});
+
+    const entryIndex = entries.findIndex((e) => e.id === id);
+
+    if(entryIndex === -1) return res.status(404).json({error: "Entry not found"});
+
+    const {title, content} = req.body;
+
+    if(!title && !content) return res.status(400).json({error: "Nothing to update"});
+
+    const existing = entries[entryIndex];
+
+    const updated = {
+        ...existing,
+        title: title ?? existing.title,
+        content: content ?? existing.content,
+        updatedAt: new Date().toISOString()
+    }
+
+    entries[entryIndex] = updated;
+    res.status(200).json({entry: updated});
+})
+
+// DELETE /journal/:id
+app.delete('/journal/:id', (req, res) => {
+    const id = Number(req.params.id);
+
+    if(isNaN(id)) return res.status(400).json({error: "Invalid ID"});
+
+    const entryIndex = entries.findIndex((e) => e.id === id);
+
+    if (entryIndex === -1) return res.status(404).json({ error: "Entry not found" });
+
+    const deleted = entries[entryIndex];
+    entries.splice(entryIndex, 1);
+
+    res.status(200).json({ deleted });
+})
+
+app.use((req, res) => {
+    res.status(404).json({error: "Route not found"});
+})
+
+app.listen(PORT, () => {
+    console.log(`Express server running at http://localhost:${PORT}`);
 })
