@@ -2,6 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import baseRoutes from './routes/baseRoutes.js';
 import journalRoutes from './routes/journalRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import connectDB from './config/db.js';
 
 const app = express();
@@ -13,6 +14,7 @@ app.use(express.json());  // Middleware to parse JSON body
 
 app.use('/', baseRoutes);
 app.use('/journal', journalRoutes)
+app.use('/auth', authRoutes);
 
 app.use((req, res) => {
     res.status(404).json({error: "Route not found"});
