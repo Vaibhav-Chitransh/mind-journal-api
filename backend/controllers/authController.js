@@ -14,7 +14,7 @@ export const registerUser = async(req, res) => {
 
         // Hash password
         const salt = await bcrypt.genSalt(10);
-        const hashed = bcrypt.hash(password, salt);
+        const hashed = await bcrypt.hash(password, salt);
 
         const user = await User.create({
             name,
@@ -30,8 +30,8 @@ export const registerUser = async(req, res) => {
             avatar: user.avatar,
         }, token: generateToken(user._id)});
 
-    } catch (error) {
-        console.error('Register error: ', error);
+    } catch (err) {
+        console.error('Register error: ', err);
         res.status(500).json({error: 'Server error during registration'});
     }
 }
@@ -42,7 +42,7 @@ export const loginUser = async (req, res) => {
 
         if(!email || !password) return res.status(400).json({error: 'email & password required'});
 
-        const user = user.findOne({email});
+        const user = await User.findOne({email});
 
         if(!user) return res.status(400).json({error: 'Invalid credentials'});
 
@@ -57,8 +57,8 @@ export const loginUser = async (req, res) => {
             avatar: user.avatar,
         }, token: generateToken(user._id)});
 
-    } catch (error) {
-        console.error('Login error: ', error);
+    } catch (err) {
+        console.error('Login error: ', err);
         res.status(500).json({error: 'Server error during login'});
     }
 }
@@ -70,8 +70,8 @@ export const getMe = async (req, res) => {
         if(!user) return res.status(404).json({error: 'User not found'});
 
         return res.status(200).json({user});
-    } catch (error) {
-        console.error('GetMe error: ', error);
+    } catch (err) {
+        console.error('GetMe error: ', err);
         res.status(500).json({error: 'Server error'});
     }
 }
