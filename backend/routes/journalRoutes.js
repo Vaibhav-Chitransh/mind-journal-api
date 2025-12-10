@@ -1,12 +1,13 @@
 import express from 'express';
 import { createEntry, deleteEntry, getAllEntries, getEntryById, updateEntry } from '../controllers/journalController.js';
+import {protect} from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.get('/', getAllEntries);
-router.get('/:id', getEntryById);
-router.post('/', createEntry);
-router.put('/:id', updateEntry);
-router.delete('/:id', deleteEntry);
+router.get('/', protect, getAllEntries);
+router.get('/:id', protect, getEntryById);
+router.post('/', protect, createEntry);
+router.put('/:id', protect, updateEntry);
+router.delete('/:id', protect, deleteEntry);
 
 export default router;

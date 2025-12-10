@@ -3,7 +3,7 @@ import Entry from '../models/entryModel.js';
 
 export const getAllEntries = async (req, res) => {
     try {
-        const entries = await Entry.find().sort({createdAt: -1});
+        const entries = await Entry.find({user: req.user.id}).sort({createdAt: -1});
         res.status(200).json({entries});
     } catch (error) {
         console.error(`Error fetching entries: ${error}`);
@@ -21,6 +21,11 @@ export const getEntryById = async (req, res) => {
 
         if(!entry) return res.status(400).json({error: "Entry not found"});
 
+        const isOwner = entry.user.toString() === req.user.id;
+        const isPublic = entry.visibility === 'public';
+
+        if(!isOwner && !isPublic) return res.status(403).json({error: 'Not authorized to access this entry'});
+
         res.status(200).json({entry});
     } catch (error) {
         console.error(`Error fetching entry: ${err}`);
@@ -30,11 +35,16 @@ export const getEntryById = async (req, res) => {
 
 export const createEntry = async (req, res) => {
     try {
-        const {title, content} = req.body;
+        const {title, content, visibility} = req.body;
 
         if(!title || !content) return res.status(400).json({error: "title and content are required"});
 
-        const entry = await Entry.create({title, content});
+        const entry = await Entry.create({
+            user: req.user.id,
+            title,
+            content,
+            visibility: visibility === 'public' ? 'public' : 'private'
+        });
         res.status(201).json({entry});
     } catch (error) {
         console.error(`Error creating entry: ${error}`);
@@ -48,16 +58,16 @@ export const updateEntry = async (req, res) => {
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({error: "Invalid ID"});
 
-        const {title, content} = req.body;
-
-        if(!title && !content) return res.status(400).json({error: 'Nothing to update'});
-
         const entry = await Entry.findById(id);
-
         if(!entry) return res.status(400).json({error: "Entry not found"});
+
+        if(entry.user.toString() !== req.user.id) return res.status(403).json({ error: 'Not authorized to edit this entry' });
+
+        const { title, content, visibility } = req.body;
 
         if(title) entry.title = title;
         if(content) entry.content = content;
+        if(visibility) entry.visibility = visibility === 'public' ? 'public' : 'private';
 
         await entry.save();
 
@@ -74,13 +84,38 @@ export const deleteEntry = async (req, res) => {
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({error: "Invalid ID"});
 
-        const deleted = await Entry.findByIdAndDelete(id);
+        const entry = await Entry.findById(id);
+        if(!entry) return res.status(400).json({error: "Entry not found"});
 
-        if(!deleted) return res.status(400).json({error: "Entry not found"});
+        if(entry.user.toString() !== req.user.id) return res.status(403).json({ error: 'Not authorized to delete this entry' });        
+
+        await entry.deleteOne();
         
-        res.status(200).json({deleted});
+        res.status(200).json({message: 'Entry deleted successfully'});
    } catch (error) {
         console.error(`Error deleting entry: ${error}`);
         res.status(500).json({entry});
    }
 }
+
+// export const likeEntry = async (req, res) => {
+//     try {
+//         const {id} = req.params;
+
+//         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({error: 'Invalid ID'});
+
+//         const entry = await Entry.findById(id);
+
+//         if(!entry) return res.status(404).json({error: 'Entry not found'});
+
+//         const isOwner = entry.user.toString() === req.user.id;
+//         const isPublic = entry.visibility === 'public';
+
+//         if(!isOwner && !isPublic) return res.status(403).json({error: 'Not authorized to react to this entry'});
+
+//         const userId = req.user.id;
+//     } catch (err) {
+//         console.error('Error liking entry: ', err);
+//         res.status(500).json({error: 'Server error while liking entry'});
+//     }
+// }
